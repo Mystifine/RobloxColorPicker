@@ -16,6 +16,7 @@ export type ColorPicker = {
 	_s : number,
 	_v : number,
 	
+	_connections : {RBXScriptConnection},
 	_color_picker_ui : ScreenGui,
 	_is_destroyed : boolean,
 	_is_picking_color : boolean,
@@ -96,6 +97,12 @@ function ColorPicker:Destroy()
 	color_picker._pick_color_event_bindable:Fire();
 	color_picker._pick_color_event_bindable = color_picker._pick_color_event_bindable:Destroy();
 	color_picker._color_picker_ui = color_picker._color_picker_ui:Destroy();
+	
+	-- clean up all connections
+	for _, connection in ipairs(color_picker._connections) do 
+		connection:Disconnect();
+	end
+	color_picker._connections = nil;
 end
 
 function ColorPicker:Pick(x : number, y : number)
@@ -165,13 +172,15 @@ function ColorPicker._bindResponeEvents(color_picker : ColorPicker)
 	
 	-- Events to select the color
 	local bottom_frame = color_picker._color_picker_ui.color_picker_frame.color_picker_frame.bottom_frame;
-	bottom_frame.accept_button.Activated:Connect(function()
+	local accept_button_activated_connection = bottom_frame.accept_button.Activated:Connect(function()
 		bindable_event:Fire(Color3.fromHSV(color_picker._h, color_picker._s, color_picker._v));
 	end)
-
-	bottom_frame.cancel_button.Activated:Connect(function()
+	table.insert(color_picker._connections, accept_button_activated_connection);
+	
+	local cancel_button_activated_connection = bottom_frame.cancel_button.Activated:Connect(function()
 		bindable_event:Fire(color_picker._selected_color);
 	end)
+	table.insert(color_picker._connections, cancel_button_activated_connection);
 end
 
 function ColorPicker._validateHSVInput(original_value : number, input : string)
@@ -197,35 +206,39 @@ end
 function ColorPicker._bindHSVInputEvents(color_picker : ColorPicker)
 	local hsv_frame = color_picker._color_picker_ui.color_picker_frame.color_input.hsv_frame;
 	
-	hsv_frame.h.input.FocusLost:Connect(function()
+	local h_focus_lost_connection = hsv_frame.h.input.FocusLost:Connect(function()
 		local h, s, v = Color3.fromHSV(color_picker._h, color_picker._s, color_picker._v);
 
 		local new_h = ColorPicker._validateHSVInput(h, hsv_frame.h.input.Text);
 		color_picker._h = new_h;
 		color_picker:UpdateColorUI(color_picker);
 	end)
+	table.insert(color_picker._connections, h_focus_lost_connection);
 	
-	hsv_frame.s.input.FocusLost:Connect(function()
+	local s_focus_lost_connection = hsv_frame.s.input.FocusLost:Connect(function()
 		local h, s, v = Color3.fromHSV(color_picker._h, color_picker._s, color_picker._v);
 
 		local new_s = ColorPicker._validateHSVInput(s, hsv_frame.s.input.Text);
 		color_picker._s = new_s;
 		color_picker:UpdateColorUI();
 	end)
-	
-	hsv_frame.v.input.FocusLost:Connect(function()
+	table.insert(color_picker._connections, s_focus_lost_connection);
+
+	local v_focus_lost_connection = hsv_frame.v.input.FocusLost:Connect(function()
 		local h, s, v = Color3.fromHSV(color_picker._h, color_picker._s, color_picker._v);
 
 		local new_v = ColorPicker._validateHSVInput(v, hsv_frame.v.input.Text);
 		color_picker._v = new_v;
 		color_picker:UpdateColorUI();
 	end)
+	table.insert(color_picker._connections, v_focus_lost_connection);
+
 end
 
 function ColorPicker._bindRGBInputEvents(color_picker : ColorPicker)
 	local rgb_frame = color_picker._color_picker_ui.color_picker_frame.color_input.rgb_frame;
 
-	rgb_frame.r.input.FocusLost:Connect(function()
+	local r_focus_lost_connection = rgb_frame.r.input.FocusLost:Connect(function()
 		local current_color = Color3.fromHSV(color_picker._h, color_picker._s, color_picker._v);
 		local r, g, b = ColorPicker._getRGB(current_color);
 
@@ -236,8 +249,9 @@ function ColorPicker._bindRGBInputEvents(color_picker : ColorPicker)
 		color_picker._v = v;
 		color_picker:UpdateColorUI();
 	end)
+	table.insert(color_picker._connections, r_focus_lost_connection);
 
-	rgb_frame.g.input.FocusLost:Connect(function()
+	local g_focus_lost_connection = rgb_frame.g.input.FocusLost:Connect(function()
 		local current_color = Color3.fromHSV(color_picker._h, color_picker._s, color_picker._v);
 		local r, g, b = ColorPicker._getRGB(current_color);
 
@@ -248,8 +262,9 @@ function ColorPicker._bindRGBInputEvents(color_picker : ColorPicker)
 		color_picker._v = v;
 		color_picker:UpdateColorUI();
 	end)
+	table.insert(color_picker._connections, g_focus_lost_connection);
 
-	rgb_frame.b.input.FocusLost:Connect(function()
+	local b_focus_lost_connection = rgb_frame.b.input.FocusLost:Connect(function()
 		local current_color = Color3.fromHSV(color_picker._h, color_picker._s, color_picker._v);
 		local r, g, b = ColorPicker._getRGB(current_color);
 
@@ -260,6 +275,7 @@ function ColorPicker._bindRGBInputEvents(color_picker : ColorPicker)
 		color_picker._v = v;
 		color_picker:UpdateColorUI();
 	end)
+	table.insert(color_picker._connections, b_focus_lost_connection);
 
 end
 
@@ -275,7 +291,7 @@ function ColorPicker._bindHSVSliderEvents(color_picker : ColorPicker)
 	local holding = false;
 	
 	for slider_name, slider : ImageButton in pairs(hsv_sliders) do
-		slider.InputBegan:Connect(function(input : InputObject)
+		local slider_input_began_connection = slider.InputBegan:Connect(function(input : InputObject)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 
 				or input.UserInputType == Enum.UserInputType.Touch then
 				holding = true;
@@ -297,13 +313,15 @@ function ColorPicker._bindHSVSliderEvents(color_picker : ColorPicker)
 				end
 			end
 		end)
+		table.insert(color_picker._connections, slider_input_began_connection);
 		
-		slider.InputEnded:Connect(function(input : InputObject)
+		local slider_input_ended_connection = slider.InputEnded:Connect(function(input : InputObject)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 
 				or input.UserInputType == Enum.UserInputType.Touch then
 				holding = false;
 			end
 		end)
+		table.insert(color_picker._connections, slider_input_ended_connection);
 	end
 end
 
