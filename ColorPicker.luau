@@ -332,6 +332,7 @@ function ColorPicker.new(selected_color : Color3)
 	color_picker._h = h;
 	color_picker._s = s;
 	color_picker._v = v;
+	color_picker._connections = {};
 	color_picker._is_destroyed = false;
 		
 	local color_picker_ui = script.color_picker_ui:Clone();
